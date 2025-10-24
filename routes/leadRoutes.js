@@ -30,16 +30,29 @@ const {
   getAllLeads,
   getLeadsByStatus,
   searchLead,
+  getLeadDetails,
+  updateLeadAndQuery,
+  updateQueryStatus,
+  getCallHistory
 } = require("../controllers/leadController");
 
 // Create or update a lead
 router.post("/create", createLeadWithQuery);
+router.put("/update/:leadId/:queryId", updateLeadAndQuery);
+
+// Update query status (includes Call Later)
+router.patch("/update-status/:leadId/:queryId", updateQueryStatus);
+
+// Fetch call history for a query
+router.get("/call-history/:leadId/:queryId", getCallHistory);
 
 // Fetch all leads (with pagination + search)
 router.get("/all", getAllLeads);
 
 // Fetch leads by status (New / Old)
 router.get("/status/:status", getLeadsByStatus);
+
+router.get("/details/:leadId", getLeadDetails);
 
 // Search by email / phone / company
 router.get("/search", searchLead);
