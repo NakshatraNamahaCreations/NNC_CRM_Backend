@@ -26,33 +26,17 @@
 const express = require("express");
 const router = express.Router();
 const {
-  createLeadWithQuery,
-  getAllLeads,
-  getLeadsByStatus,
-  searchLead,
-  getLeadDetails,
-  updateLeadAndQuery,
-  updateQueryStatus,
+  getCallHistory,
+  getAllCallFollowUps,
+  getCallFollowUpsByDate
+} = require("../controllers/callhistoryController");
 
-} = require("../controllers/leadController");
+// Fetch call history for a query
+router.get("/:leadId/:queryId", getCallHistory);
 
-// Create or update a lead
-router.post("/create", createLeadWithQuery);
-router.put("/update/:leadId/:queryId", updateLeadAndQuery);
+// @route   GET /api/leads/call-followups
+router.get("/all-followups", getAllCallFollowUps);
 
-// Update query status (includes Call Later)
-router.patch("/update-status/:leadId/:queryId", updateQueryStatus);
-
-
-// Fetch all leads (with pagination + search)
-router.get("/all", getAllLeads);
-
-// Fetch leads by status (New / Old)
-router.get("/status/:status", getLeadsByStatus);
-
-router.get("/details/:leadId", getLeadDetails);
-
-// Search by email / phone / company
-router.get("/search", searchLead);
+router.get("/followups-by-date", getCallFollowUpsByDate);
 
 module.exports = router;

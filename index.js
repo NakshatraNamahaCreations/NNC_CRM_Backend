@@ -37,6 +37,7 @@ const cors = require("cors");
 const serviceRoutes = require("./routes/serviceRoutes");
 const referenceRoutes = require("./routes/referenceRoutes");
 const leadRoutes = require("./routes/leadRoutes");
+const callhistoryRoutes = require("./routes/callhistoryRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -65,6 +66,7 @@ app.get("/", (req, res) => {
 app.use("/api/services", serviceRoutes);
 app.use("/api/references", referenceRoutes);
 app.use("/api/leads", leadRoutes);
+app.use("/api/call-history", callhistoryRoutes);
 
 // Start server
 const PORT = process.env.PORT || 8000;
