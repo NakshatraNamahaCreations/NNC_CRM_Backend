@@ -307,14 +307,20 @@ exports.updateLeadAndQuery = async (req, res) => {
   }
 };
 
+
 /* -------------------------------------------------------------------------- */
-/* 🔹 Update Query Status & Manage Call Later (Safe Transaction Style)         */
+/* 🔹 Update Query Status & Manage Call Later                                 */
 /* -------------------------------------------------------------------------- */
 exports.updateQueryStatus = async (req, res) => {
   try {
     const { leadId, queryId } = req.params;
-    const { status, remarks, reschedule_date, person_name, created_by } =
-      req.body;
+    const {
+      status,
+      remarks,
+      reschedule_date,
+      call_date, // ✅ Added
+      person_name,
+    } = req.body;
 
     if (!status) {
       return res.status(400).json({ message: "Status is required" });
@@ -326,12 +332,54 @@ exports.updateQueryStatus = async (req, res) => {
     const query = lead.queries.find((q) => q.query_id === queryId);
     if (!query) return res.status(404).json({ message: "Query not found" });
 
-    // ✅ For normal statuses — directly update
-    if (
-      status !== "Call Later" &&
-      ["Created", "Not Interested", "Quotation", "Booked"].includes(status)
-    ) {
-      // Lead becomes old once a query changes from Created
+    /* ---------------------------------------------------------------------- */
+    /* ✅ CASE 1: "Call Later" - Add Call History Entry                        */
+    /* ---------------------------------------------------------------------- */
+    if (status === "Call Later") {
+      // Validate all required fields
+      if (!remarks || !reschedule_date || !call_date || !person_name) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Remarks, call_date, reschedule_date, and person_name are required for Call Later",
+        });
+      }
+
+      // Create a call history record
+      await CallHistory.create({
+        lead_id: leadId,
+        query_id: queryId,
+        person_name,
+        call_date, // ✅ Save call date
+        remarks,
+        reschedule_date,
+        status: "Call Later",
+      });
+
+      // Update lead + query info
+      if (lead.status === "New") lead.status = "Old";
+      query.status = "Call Later";
+      query.updatedAt = new Date();
+
+      await lead.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Call Later follow-up created successfully.",
+      });
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* ✅ CASE 2: Normal Status (Quotation, Booked, Not Interested, etc.)      */
+    /* ---------------------------------------------------------------------- */
+    if (["Created", "Not Interested", "Quotation", "Booked"].includes(status)) {
+      // Mark all previous "Call Later" follow-ups as completed
+      await CallHistory.updateMany(
+        { lead_id: leadId, query_id: queryId, status: "Call Later" },
+        { $set: { status: "Completed", updatedAt: new Date() } }
+      );
+
+      // Update lead & query
       if (lead.status === "New" && status !== "Created") {
         lead.status = "Old";
       }
@@ -342,51 +390,13 @@ exports.updateQueryStatus = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `Query status updated to ${status}`,
+        message: `Query status updated to ${status} and related follow-ups marked as completed.`,
       });
     }
 
-    // ✅ Handle "Call Later" with validation
-    if (status === "Call Later") {
-      if (!remarks || !reschedule_date || !person_name) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Remarks, reschedule_date, and person_name are required for Call Later",
-        });
-      }
-
-      // Try saving the call history entry first
-      const history = await CallHistory.create({
-        lead_id: leadId,
-        query_id: queryId,
-        person_name,
-        remarks,
-        reschedule_date,
-        created_by,
-      });
-
-      if (!history) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to save call history. Status unchanged.",
-        });
-      }
-
-      // ✅ Only if call history is saved successfully → update query + lead
-      if (lead.status === "New") lead.status = "Old";
-      query.status = "Call Later";
-      query.updatedAt = new Date();
-      await lead.save();
-
-      return res.status(200).json({
-        success: true,
-        message: "Call Later saved successfully and status updated",
-      });
-    }
-
-    // Fallback
-    res.status(400).json({ success: false, message: "Invalid status type" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid status type" });
   } catch (error) {
     console.error("Error updating query status:", error);
     res.status(500).json({
@@ -397,22 +407,92 @@ exports.updateQueryStatus = async (req, res) => {
   }
 };
 
-/* -------------------------------------------------------------------------- */
-/* 🔹 Get Call History                                                        */
-/* -------------------------------------------------------------------------- */
-// exports.getCallHistory = async (req, res) => {
+
+
+// exports.updateQueryStatus = async (req, res) => {
 //   try {
 //     const { leadId, queryId } = req.params;
-//     const history = await CallHistory.find({
-//       lead_id: leadId,
-//       query_id: queryId,
-//     })
-//       .sort({ createdAt: -1 })
-//       .lean();
+//     const { status, remarks, reschedule_date, person_name, created_by } =
+//       req.body;
 
-//     res.status(200).json({ success: true, history });
+//     if (!status) {
+//       return res.status(400).json({ message: "Status is required" });
+//     }
+
+//     const lead = await Lead.findOne({ lead_id: leadId });
+//     if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+//     const query = lead.queries.find((q) => q.query_id === queryId);
+//     if (!query) return res.status(404).json({ message: "Query not found" });
+
+//     // ✅ For normal statuses — directly update
+//     if (
+//       status !== "Call Later" &&
+//       ["Created", "Not Interested", "Quotation", "Booked"].includes(status)
+//     ) {
+//       // Lead becomes old once a query changes from Created
+//       if (lead.status === "New" && status !== "Created") {
+//         lead.status = "Old";
+//       }
+
+//       query.status = status;
+//       query.updatedAt = new Date();
+//       await lead.save();
+
+//       return res.status(200).json({
+//         success: true,
+//         message: `Query status updated to ${status}`,
+//       });
+//     }
+
+//     // ✅ Handle "Call Later" with validation
+//     if (status === "Call Later") {
+//       if (!remarks || !reschedule_date || !person_name) {
+//         return res.status(400).json({
+//           success: false,
+//           message:
+//             "Remarks, reschedule_date, and person_name are required for Call Later",
+//         });
+//       }
+
+//       // Try saving the call history entry first
+//       const history = await CallHistory.create({
+//         lead_id: leadId,
+//         query_id: queryId,
+//         person_name,
+//         remarks,
+//         reschedule_date,
+//         created_by,
+//       });
+
+//       if (!history) {
+//         return res.status(500).json({
+//           success: false,
+//           message: "Failed to save call history. Status unchanged.",
+//         });
+//       }
+
+//       // ✅ Only if call history is saved successfully → update query + lead
+//       if (lead.status === "New") lead.status = "Old";
+//       query.status = "Call Later";
+//       query.updatedAt = new Date();
+//       await lead.save();
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Call Later saved successfully and status updated",
+//       });
+//     }
+
+//     // Fallback
+//     res.status(400).json({ success: false, message: "Invalid status type" });
 //   } catch (error) {
-//     console.error("Error fetching call history:", error);
-//     res.status(500).json({ success: false, message: "Internal Server Error" });
+//     console.error("Error updating query status:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
 //   }
 // };
+
