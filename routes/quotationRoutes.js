@@ -10,5 +10,10 @@ router.get(
   quotationController.getQuotationsByLeadAndQuery
 );
 router.get("/:quoteId", quotationController.getQuotationByQuoteId);
+// DELETE /quotations/:quotationId
+router.delete("/:quotationId", quotationController.deleteQuotation);
+
+// PATCH /quotations/finalize/:quotationId
+router.patch("/finalize/:quotationId", quotationController.finalizeQuotation);
 
 module.exports = router;

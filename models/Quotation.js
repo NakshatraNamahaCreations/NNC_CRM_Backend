@@ -167,4 +167,42 @@ QuotationSchema.pre("save", async function (next) {
   }
 });
 
+/* -------------------------------------------------------------------------- */
+/* 🔹 Static helper: addOrUpdateNote                                            */
+/* -------------------------------------------------------------------------- */
+/**
+ * Add or update the `quoteNote` for a quotation.
+ * identifier can be a `quotationId` (e.g. "QUO-001") or a Mongo _id string.
+ * Returns the updated document, or null if no matching quotation was found.
+ *
+ * @param {String} identifier - `quotationId` or Mongo `_id`
+ * @param {String} note - The note content to set
+ * @returns {Promise<Document|null>}
+ */
+QuotationSchema.statics.addOrUpdateNote = async function (identifier, note) {
+  if (!identifier) throw new Error("identifier is required");
+
+  // Ensure note is a string; allow empty string to clear the note
+  const noteValue = (note === null || note === undefined) ? "" : String(note);
+
+  // Build filter: if identifier is a valid ObjectId, search by _id or quotationId
+  let filter;
+  try {
+    filter = mongoose.Types.ObjectId.isValid(identifier)
+      ? { $or: [{ _id: identifier }, { quotationId: identifier }] }
+      : { quotationId: identifier };
+  } catch (e) {
+    // Fallback to search by quotationId only
+    filter = { quotationId: identifier };
+  }
+
+  const updated = await this.findOneAndUpdate(
+    filter,
+    { $set: { quoteNote: noteValue } },
+    { new: true }
+  );
+
+  return updated;
+};
+
 module.exports = mongoose.model("Quotation", QuotationSchema);
