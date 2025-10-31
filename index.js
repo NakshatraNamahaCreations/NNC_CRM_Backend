@@ -39,6 +39,7 @@ const referenceRoutes = require("./routes/referenceRoutes");
 const leadRoutes = require("./routes/leadRoutes");
 const callHistoryRoutes = require("./routes/callHistoryRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
+const installmentRoutes = require("./routes/installmentRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -69,6 +70,7 @@ app.use("/api/references", referenceRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/call-history", callHistoryRoutes);
 app.use("/api/quotations", quotationRoutes);
+app.use("/api/installments", installmentRoutes);
 
 // Start server
 const PORT = process.env.PORT || 8000;

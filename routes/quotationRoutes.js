@@ -9,6 +9,10 @@ router.get(
   "/by-lead/:leadId/:queryId",
   quotationController.getQuotationsByLeadAndQuery
 );
+// GET /quotations/finalized?q=term&page=1&limit=20
+router.get("/finalized", quotationController.getFinalizedQuotations);
+// GET /quotations/booked?q=term&page=1&limit=20
+router.get("/booked", quotationController.getBookedQuotations);
 router.get("/:quoteId", quotationController.getQuotationByQuoteId);
 // DELETE /quotations/:quotationId
 router.delete("/:quotationId", quotationController.deleteQuotation);

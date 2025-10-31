@@ -1,226 +1,3 @@
-// const mongoose = require("mongoose");
-// const Quotation = require("../models/Quotation");
-// const Installment = require("../models/Installment");
-// const Lead = require("../models/Lead");
-// const getNextQuotationId = require("../utils/getNextQuotationId");
-
-// /* -------------------------------------------------------------------------- */
-// /* 🔹 Create Quotation                                                        */
-// /* -------------------------------------------------------------------------- */
-// exports.createQuotation = async (req, res) => {
-//   try {
-//     const {
-//       lead_id, // e.g. "LEAD-003"
-//       query_id, // e.g. "QUERY-005"
-//       quoteTitle,
-//       quoteDescription,
-//       quotationServices,
-//       discountValue,
-//       gstApplied,
-//       gstValue,
-//       totalAmount,
-//       marginAmount,
-//       installments,
-//     } = req.body;
-
-//     if (!lead_id || !query_id) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "lead_id and query_id are required",
-//       });
-//     }
-
-//     // ✅ 1️⃣ Find lead + query based on string IDs
-//     const lead = await Lead.findOne({ lead_id });
-//     if (!lead)
-//       return res.status(404).json({ success: false, message: "Lead not found" });
-
-//     const queryObj = lead.queries.find((q) => q.query_id === query_id);
-//     if (!queryObj)
-//       return res.status(404).json({ success: false, message: "Query not found" });
-
-//     // ✅ 2️⃣ Generate next quotationId
-//     const quotationId = await getNextQuotationId();
-
-//     // ✅ 3️⃣ Create Installment documents first
-//     let installmentIds = [];
-//     if (Array.isArray(installments) && installments.length > 0) {
-//       const created = await Installment.insertMany(
-//         installments.map((inst, i) => ({
-//           installmentNumber: inst.installmentNumber || i + 1,
-//           percentage: inst.percentage || 0,
-//           totalAmount: inst.totalAmount || 0,
-//           paidAmount: 0,
-//           dueAmount: inst.totalAmount || 0,
-//           dueDate: inst.dueDate || new Date(),
-//           status: "Pending",
-//           paymentHistory: [],
-//         }))
-//       );
-//       installmentIds = created.map((i) => i._id);
-//     }
-
-//     // ✅ 4️⃣ Create quotation with both ObjectId + string IDs
-//     const quotation = new Quotation({
-//       quotationId,
-//       lead_Id: lead._id,
-//       lead_id: lead.lead_id,
-//       query_Id: queryObj._id,
-//       query_id: queryObj.query_id,
-//       quoteTitle,
-//       quoteDescription,
-//       quotationServices,
-//       discountValue,
-//       gstApplied,
-//       gstValue,
-//       totalAmount,
-//       marginAmount,
-//       installments: installmentIds,
-//     });
-
-//     await quotation.save();
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Quotation created successfully",
-//       quotation,
-//     });
-//   } catch (error) {
-//     console.error("Error creating quotation:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// /* -------------------------------------------------------------------------- */
-// /* 🔹 Update Quotation                                                        */
-// /* -------------------------------------------------------------------------- */
-// exports.updateQuotation = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const updates = req.body;
-
-//     const quotation = await Quotation.findOneAndUpdate(
-//       { quotationId: id },
-//       { $set: updates },
-//       { new: true }
-//     ).populate("installments");
-
-//     if (!quotation) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Quotation not found",
-//       });
-//     }
-
-//     res.json({
-//       success: true,
-//       message: "Quotation updated successfully",
-//       quotation,
-//     });
-//   } catch (error) {
-//     console.error("Error updating quotation:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// /* -------------------------------------------------------------------------- */
-// /* 🔹 Get Quotations by Lead + Query (using string IDs)                       */
-// /* -------------------------------------------------------------------------- */
-// exports.getQuotationsByLeadAndQuery = async (req, res) => {
-//   try {
-//     const { leadId, queryId } = req.params; // e.g. LEAD-003, QUERY-005
-
-//     const quotations = await Quotation.find({
-//       lead_id: leadId,
-//       query_id: queryId,
-//     })
-//       .populate({
-//         path: "lead_Id",
-//         select:
-//           "lead_id company_name lead_source persons location status queries",
-//       })
-//       .populate("installments")
-//       .sort({ createdAt: -1 });
-
-//     if (!quotations || quotations.length === 0) {
-//       return res.json({ success: true, quotations: [] });
-//     }
-
-//     // ✅ Inject query details from lead
-//     const populated = quotations.map((q) => {
-//       const lead = q.lead_Id?.toObject?.() || {};
-//       const foundQuery =
-//         lead.queries?.find?.((qq) => qq.query_id === queryId) || null;
-
-//       return {
-//         ...q.toObject(),
-//         leadDetails: {
-//           persons: lead.persons,
-//           company_name: lead.company_name,
-//           lead_source: lead.lead_source,
-//           location: lead.location,
-//           status: lead.status,
-//         },
-//         queryDetails: foundQuery
-//           ? {
-//               services: foundQuery.services,
-//               expected_delivery_date: foundQuery.expected_delivery_date,
-//               status: foundQuery.status,
-//             }
-//           : null,
-//       };
-//     });
-
-//     res.json({
-//       success: true,
-//       count: populated.length,
-//       quotations: populated,
-//     });
-//   } catch (error) {
-//     console.error("Error fetching quotations:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error fetching quotations",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// /* -------------------------------------------------------------------------- */
-// /* 🔹 Get Quotation by Quotation ID                                           */
-// /* -------------------------------------------------------------------------- */
-// exports.getQuotationByQuoteId = async (req, res) => {
-//   try {
-//     const { quoteId } = req.params;
-//     const quotation = await Quotation.findOne({
-//       quotationId: quoteId,
-//     }).populate("installments");
-
-//     if (!quotation)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Quotation not found" });
-
-//     res.json({ success: true, quotation });
-//   } catch (error) {
-//     console.error("Error fetching quotation:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-
 const mongoose = require("mongoose");
 const Quotation = require("../models/Quotation");
 const Installment = require("../models/Installment");
@@ -256,11 +33,15 @@ exports.createQuotation = async (req, res) => {
 
     const lead = await Lead.findOne({ lead_id });
     if (!lead)
-      return res.status(404).json({ success: false, message: "Lead not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
 
     const queryObj = lead.queries.find((q) => q.query_id === query_id);
     if (!queryObj)
-      return res.status(404).json({ success: false, message: "Query not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Query not found" });
 
     const quotationId = await getNextQuotationId();
 
@@ -329,7 +110,11 @@ exports.updateQuotation = async (req, res) => {
     if (Array.isArray(updates.installments)) {
       // Find existing quotation to clean up old installments
       const existing = await Quotation.findOne({ quotationId: id }).lean();
-      if (existing && Array.isArray(existing.installments) && existing.installments.length > 0) {
+      if (
+        existing &&
+        Array.isArray(existing.installments) &&
+        existing.installments.length > 0
+      ) {
         try {
           await Installment.deleteMany({ _id: { $in: existing.installments } });
         } catch (delErr) {
@@ -346,7 +131,9 @@ exports.updateQuotation = async (req, res) => {
         dueAmount: inst.dueAmount || inst.totalAmount || 0,
         dueDate: inst.dueDate ? new Date(inst.dueDate) : new Date(),
         status: inst.status || "Pending",
-        paymentHistory: Array.isArray(inst.paymentHistory) ? inst.paymentHistory : [],
+        paymentHistory: Array.isArray(inst.paymentHistory)
+          ? inst.paymentHistory
+          : [],
       }));
 
       if (instCreateArr.length > 0) {
@@ -456,14 +243,45 @@ exports.getQuotationByQuoteId = async (req, res) => {
     const { quoteId } = req.params;
     const quotation = await Quotation.findOne({
       quotationId: quoteId,
-    }).populate("installments");
+    })
+      .populate({
+        path: "lead_Id",
+        select:
+          "lead_id company_name lead_source persons location status queries",
+      })
+      .populate("installments");
 
     if (!quotation)
       return res
         .status(404)
         .json({ success: false, message: "Quotation not found" });
 
-    res.json({ success: true, quotation });
+    // ✅ Inject lead and query details
+    const lead = quotation.lead_Id?.toObject?.() || {};
+    const foundQuery =
+      lead.queries?.find?.(
+        (q) => q._id.toString() === quotation.query_Id.toString()
+      ) || null;
+
+    const populatedQuotation = {
+      ...quotation.toObject(),
+      leadDetails: {
+        persons: lead.persons,
+        company_name: lead.company_name,
+        lead_source: lead.lead_source,
+        location: lead.location,
+        status: lead.status,
+      },
+      queryDetails: foundQuery
+        ? {
+            services: foundQuery.services,
+            expected_delivery_date: foundQuery.expected_delivery_date,
+            status: foundQuery.status,
+          }
+        : null,
+    };
+
+    res.json({ success: true, quotation: populatedQuotation });
   } catch (error) {
     console.error("Error fetching quotation:", error);
     res.status(500).json({
@@ -483,11 +301,16 @@ exports.deleteQuotation = async (req, res) => {
 
     const quotation = await Quotation.findOne({ quotationId });
     if (!quotation) {
-      return res.status(404).json({ success: false, message: "Quotation not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Quotation not found" });
     }
 
     // Remove associated installments (cleanup)
-    if (Array.isArray(quotation.installments) && quotation.installments.length > 0) {
+    if (
+      Array.isArray(quotation.installments) &&
+      quotation.installments.length > 0
+    ) {
       try {
         await Installment.deleteMany({ _id: { $in: quotation.installments } });
       } catch (err) {
@@ -500,7 +323,11 @@ exports.deleteQuotation = async (req, res) => {
     res.json({ success: true, message: "Quotation deleted" });
   } catch (error) {
     console.error("Error deleting quotation:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -524,7 +351,9 @@ exports.finalizeQuotation = async (req, res) => {
     // Find the target quotation first
     const target = await Quotation.findOne({ quotationId }).lean();
     if (!target) {
-      return res.status(404).json({ success: false, message: "Quotation not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Quotation not found" });
     }
 
     // If the client requests to finalize this quotation, ensure all other
@@ -569,6 +398,178 @@ exports.finalizeQuotation = async (req, res) => {
     });
   } catch (error) {
     console.error("Error toggling finalized:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* 🔹 Get finalized quotations (with pagination + search)                      */
+/* GET /quotations/finalized?q=term&page=1&limit=20                            */
+/* -------------------------------------------------------------------------- */
+exports.getFinalizedQuotations = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
+    const search = req.query.q ? String(req.query.q).trim() : null;
+
+    const filter = { finalized: true };
+
+    if (search && search.length > 0) {
+      // escape regex special chars
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
+      filter.$or = [
+        { quotationId: regex },
+        { quoteTitle: regex },
+        { quoteDescription: regex },
+        { quoteNote: regex },
+        { lead_id: regex },
+        { query_id: regex },
+      ];
+    }
+
+    const total = await Quotation.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit) || 1;
+    const skip = (page - 1) * limit;
+
+    const quotations = await Quotation.find(filter)
+      .populate({
+        path: "lead_Id",
+        select:
+          "lead_id company_name lead_source persons location status queries",
+      })
+      .populate("installments")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Inject leadDetails and queryDetails similar to other endpoints
+    const populated = quotations.map((q) => {
+      const lead = q.lead_Id || {};
+      const foundQuery =
+        Array.isArray(lead.queries) && lead.queries.find
+          ? lead.queries.find((qq) => qq.query_id === q.query_id) || null
+          : null;
+
+      return {
+        ...q,
+        leadDetails: {
+          persons: lead.persons,
+          company_name: lead.company_name,
+          lead_source: lead.lead_source,
+          location: lead.location,
+          status: lead.status,
+        },
+        queryDetails: foundQuery
+          ? {
+              services: foundQuery.services,
+              expected_delivery_date: foundQuery.expected_delivery_date,
+              status: foundQuery.status,
+            }
+          : null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      total,
+      page,
+      totalPages,
+      count: populated.length,
+      quotations: populated,
+    });
+  } catch (error) {
+    console.error("Error fetching finalized quotations:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* 🔹 Get booked quotations (with pagination + search)                         */
+/* GET /quotations/booked?q=term&page=1&limit=20                               */
+/* -------------------------------------------------------------------------- */
+exports.getBookedQuotations = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
+    const search = req.query.q ? String(req.query.q).trim() : null;
+
+    const filter = { bookingStatus: "Booked" };
+
+    if (search && search.length > 0) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
+      filter.$or = [
+        { quotationId: regex },
+        { quoteTitle: regex },
+        { quoteDescription: regex },
+        { quoteNote: regex },
+        { lead_id: regex },
+        { query_id: regex },
+      ];
+    }
+
+    const total = await Quotation.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit) || 1;
+    const skip = (page - 1) * limit;
+
+    const quotations = await Quotation.find(filter)
+      .populate({
+        path: "lead_Id",
+        select:
+          "lead_id company_name lead_source persons location status queries",
+      })
+      .populate("installments")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const populated = quotations.map((q) => {
+      const lead = q.lead_Id || {};
+      const foundQuery =
+        Array.isArray(lead.queries) && lead.queries.find
+          ? lead.queries.find((qq) => qq.query_id === q.query_id) || null
+          : null;
+
+      return {
+        ...q,
+        leadDetails: {
+          persons: lead.persons,
+          company_name: lead.company_name,
+          lead_source: lead.lead_source,
+          location: lead.location,
+          status: lead.status,
+        },
+        queryDetails: foundQuery
+          ? {
+              services: foundQuery.services,
+              expected_delivery_date: foundQuery.expected_delivery_date,
+              status: foundQuery.status,
+            }
+          : null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      total,
+      page,
+      totalPages,
+      count: populated.length,
+      quotations: populated,
+    });
+  } catch (error) {
+    console.error("Error fetching booked quotations:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
